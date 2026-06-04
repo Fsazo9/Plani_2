@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Análisis de Plazos y Duración — Monday.com</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0f1625;
+      --surface: #1a1f35;
+      --card: #232d47;
+      --panel: #1e2638;
+      --border: #404c63;
+      --border2: #505d7a;
+      --text: #e8ebf0;
+      --text2: #b8c2d4;
+      --text3: #8a96ab;
+      --accent: #5b8ff9;
+      --accent-dim: rgba(91, 143, 249, 0.12);
+      --ok: #22c55e;
+      --warn: #fb923c;
+      --red: #ef4444;
+      --sans: 'DM Sans', sans-serif;
+      --mono: 'Space Mono', monospace;
+    }
+    html.light {
+      --bg: #ffffff;
+      --surface: #f8fafc;
+      --card: #ffffff;
+      --panel: #f1f5f9;
+      --border: #e2e8f0;
+      --border2: #cbd5e1;
+      --text: #0f172a;
+      --text2: #475569;
+      --text3: #94a3b8;
+      --accent: #2563eb;
+      --accent-dim: rgba(37, 99, 235, 0.08);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+    #login-screen { display: flex; align-items: center; justify-content: center; padding: 2rem; min-height: 100vh; }
+    #dash-screen { display: none; flex-direction: column; }
+    #dash-screen.active { display: flex; }
+    .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 2.5rem; max-width: 500px; width: 100%; }
+    .login-card h2 { color: var(--accent); margin-bottom: 1.5rem; }
+    .login-card input { width: 100%; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid var(--border2); background: var(--card); color: var(--text); border-radius: 8px; font-family: var(--sans); }
+    .login-card button { width: 100%; padding: 0.75rem; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0.65rem 1.5rem; display: flex; align-items: center; gap: 0.8rem; position: sticky; top: 0; z-index: 100; }
+    .topbar-title { font-family: var(--mono); font-size: 0.82rem; flex: 1; }
+    .btn-refresh { background: none; border: 1px solid var(--border2); color: var(--text2); border-radius: 7px; padding: 0.34rem 0.85rem; font-size: 0.76rem; cursor: pointer; }
+    .btn-theme { background: none; border: 1px solid var(--border2); color: var(--text2); border-radius: 7px; padding: 0.34rem 0.65rem; font-size: 0.9rem; cursor: pointer; }
+    .filterbar { background: var(--panel); border-bottom: 1px solid var(--border); padding: 0.55rem 1.5rem; display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
+    .fsearch { background: var(--card); border: 1px solid var(--border2); color: var(--text); border-radius: 6px; padding: 0.28rem 0.65rem; font-size: 0.76rem; width: 210px; outline: none; }
+    .kpi-strip { padding: 0.8rem 1.5rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 0.5rem; background: var(--bg); border-bottom: 1px solid var(--border); }
+    .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 0.65rem 0.55rem; text-align: center; }
+    .kpi.kblue { border-color: rgba(91, 143, 249, 0.25); } .kpi.kblue .kv { color: var(--accent); }
+    .kpi.kgreen { border-color: rgba(52, 211, 153, 0.25); } .kpi.kgreen .kv { color: var(--ok); }
+    .kv { font-family: var(--mono); font-size: 1.6rem; font-weight: 700; }
+    .kl { font-size: 0.59rem; color: var(--text3); margin-top: 0.18rem; text-transform: uppercase; }
+    .main { flex: 1; padding: 0.9rem 1.5rem 3rem; }
+    .tabs { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-bottom: 0.7rem; border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    .tab { background: none; border: 1px solid transparent; color: var(--text3); border-radius: 6px; padding: 0.3rem 0.75rem; font-size: 0.72rem; cursor: pointer; font-weight: 500; transition: all 0.18s; }
+    .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+    .section { display: none; } .section.active { display: block; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.8rem; }
+    table thead { background: var(--panel); } table thead th { padding: 0.6rem; text-align: left; font-weight: 600; border-bottom: 1px solid var(--border); }
+    table tbody td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); }
+    table tbody tr:hover td { background: var(--card); }
+    .stitle { font-family: var(--mono); font-size: 0.66rem; color: var(--text3); text-transform: uppercase; margin: 1.2rem 0 0.4rem; display: flex; align-items: center; gap: 0.5rem; }
+    .stitle::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-card">
+    <h2>📊 Análisis de Plazos</h2>
+    <p style="color: var(--text2); font-size: 0.85rem; margin-bottom: 1.5rem;">
+      Ingresa tu API key de Monday.com O carga datos desde archivo Excel/CSV.
+    </p>
+    
+    <div style="margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border);">
+      <p style="color: var(--text3); font-size: 0.75rem; margin-bottom: 0.8rem; font-weight: 600;">OPCIÓN 1: API de Monday.com</p>
+      <input type="password" id="apikey" placeholder="Pega tu API key aquí..." style="font-family: var(--mono); font-size: 0.75rem;"/>
+      <button onclick="login()" style="margin-top: 0.5rem;">Conectar con Monday.com</button>
+    </div>
+    
+    <div>
+      <p style="color: var(--text3); font-size: 0.75rem; margin-bottom: 0.8rem; font-weight: 600;">OPCIÓN 2: Cargar Archivo (Excel/CSV)</p>
+      <input type="file" id="file-upload" accept=".xlsx,.xls,.csv" style="display: block; margin-bottom: 0.8rem; color: var(--text2);" />
+      <button onclick="loadFile()" style="background: var(--accent); color: white; border: none; border-radius: 8px; padding: 0.75rem; width: 100%; font-weight: 600; cursor: pointer;">Cargar Archivo</button>
+    </div>
+    
+    <p style="color: var(--text3); font-size: 0.7rem; margin-top: 1rem; text-align: center;">
+      🔒 Los datos se procesan solo en tu navegador (sin servidor externo)
+    </p>
+  </div>
+</div>
+
+<!-- DASHBOARD SCREEN -->
+<div id="dash-screen">
+  <div class="topbar">
+    <button class="btn-refresh" onclick="logout()">← Salir</button>
+    <span class="topbar-title">Análisis de <span style="color: var(--accent);">Plazos & Duración</span></span>
+    <button class="btn-theme" onclick="toggleTheme()">🌙</button>
+  </div>
+  
+  <div class="filterbar">
+    <span style="font-size: 0.75rem; color: var(--text3);">Filtrar por:</span>
+    <input type="text" class="fsearch" id="searchProj" placeholder="Proyecto..." onkeyup="applyFilter()"/>
+  </div>
+  
+  <div id="kpi-strip" class="kpi-strip"></div>
+  
+  <div class="main">
+    <div class="tabs" id="tabs"></div>
+    <div id="sections"></div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// GLOBAL STATE
+// ════════════════════════════════════════════════════════════
+let DF = []; // Data Frame
+let FILTERED_DF = [];
+let lastMeta = '';
+
+// ════════════════════════════════════════════════════════════
+// LOGIN & DATA LOADING
+// ════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════
+// LOAD FROM FILE (EXCEL/CSV)
+// ════════════════════════════════════════════════════════════
+function loadFile(){
+  const fileInput = document.getElementById('file-upload');
+  const file = fileInput.files[0];
+  
+  if(!file){
+    alert('Por favor selecciona un archivo');
+    return;
+  }
+  
+  const reader = new FileReader();
+  
+  reader.onload = async (e) => {
+    try {
+      let rows = [];
+      
+      if(file.name.endsWith('.csv')){
+        // Parse CSV
+        const csv = e.target.result;
+        const lines = csv.split('\n');
+        const headers = lines[0].split(',').map(h => h.trim());
+        
+        for(let i = 1; i < lines.length; i++){
+          if(!lines[i].trim()) continue;
+          const values = lines[i].split(',').map(v => v.trim());
+          const obj = {};
+          headers.forEach((h, idx) => {
+            obj[h] = values[idx] || '';
+          });
+          rows.push(obj);
+        }
+      } else {
+        // Parse XLSX using SheetJS (if available) or alert
+        alert('Para archivos XLSX, por favor convierte a CSV primero.\n\nO descarga SheetJS desde: https://sheetjs.com');
+        return;
+      }
+      
+      if(rows.length === 0){
+        alert('No se encontraron datos en el archivo');
+        return;
+      }
+      
+      DF = rows;
+      FILTERED_DF = [...DF];
+      lastMeta = `${DF.length} ítems cargados desde archivo`;
+      
+      showDash();
+      buildApp(DF);
+    } catch(err){
+      alert('Error al procesar archivo: ' + err.message);
+      console.error(err);
+    }
+  };
+  
+  reader.readAsText(file);
+}
+
+async function login(){
+  const apikey = document.getElementById('apikey').value.trim();
+  if(!apikey) { alert('Por favor pega tu API key'); return; }
+  
+  localStorage.setItem('monday_api_key', apikey);
+  
+  // Show loading
+  alert('Conectando con Monday.com...\n\nAsegúrate de tener el proxy servidor ejecutándose:\nnode monday_proxy_server.js');
+  
+  try {
+    // Usar proxy local en puerto 3000
+    const response = await fetch('http://localhost:3000/api/monday', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        apiKey: apikey,
+        query: `{
+          boards(limit: 100) {
+            id
+            name
+            items(limit: 500) {
+              id
+              name
+              column_values {
+                id
+                text
+              }
+            }
+          }
+        }`
+      })
+    });
+    
+    const result = await response.json();
+    
+    if(result.errors) { 
+      alert('Error de Monday.com: ' + (result.errors[0]?.message || JSON.stringify(result.errors)));
+      return; 
+    }
+    
+    let allItems = [];
+    if(result.data && result.data.boards){
+      result.data.boards.forEach(board => {
+        (board.items || []).forEach(item => {
+          const vals = {};
+          item.column_values.forEach(cv => {
+            vals[cv.id] = cv.text;
+          });
+          allItems.push({
+            ...vals,
+            Proyecto: vals['proyecto'] || vals['Proyecto'] || board.name,
+            Etapa: vals['etapa'] || vals['Etapa'] || 'Sin Etapa',
+            'Ítem': vals['item'] || vals['Ítem'] || item.name,
+            'Nombre Genérico': vals['nombre'] || vals['Nombre Genérico'] || '—',
+            'Plazo Estándard': vals['plazo_std'] || vals['Plazo Estándard'] || '—',
+            'Planificado': vals['planificado'] || vals['Planificado'] || '—',
+            'Real': vals['real'] || vals['Real'] || '—',
+            'Ruta Crítica': vals['ruta'] || vals['Ruta Crítica'] || 'No',
+            _board: board.name,
+            _id: item.id,
+            _name: item.name
+          });
+        });
+      });
+    }
+    
+    if(allItems.length === 0){
+      alert('No se cargaron ítems. Verifica tu API key y que existan tableros/items en Monday.com');
+      return;
+    }
+    
+    DF = allItems;
+    FILTERED_DF = [...DF];
+    lastMeta = `${DF.length} ítems de ${result.data.boards.length} tableros`;
+    
+    showDash();
+    buildApp(DF);
+  } catch(e) {
+    console.error(e);
+    alert('❌ Error: ' + e.message + '\n\n✅ SOLUCIÓN:\n1. Abre terminal\n2. Ejecuta: node monday_proxy_server.js\n3. Espera "Proxy servidor corriendo"\n4. Reinicia este navegador');
+  }
+}
+
+function logout(){
+  localStorage.removeItem('monday_api_key');
+  location.reload();
+}
+
+function showDash(){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dash-screen').classList.add('active');
+}
+
+// ════════════════════════════════════════════════════════════
+// ENRICHMENT & HELPERS
+// ════════════════════════════════════════════════════════════
+function parsePlazoStd(r){
+  const v = r['Plazo Estándard'] || r['Plazo (días)'] || '';
+  if(!v) return null;
+  const n = parseFloat(String(v).replace(/[^0-9.]/g, ''));
+  return isNaN(n) || n <= 0 ? null : n;
+}
+
+function calcDurPlan(r){
+  const raw = r['Proyectado'] || r['Planificado'] || r['Plan PAI'] || '';
+  if(!raw) return null;
+  const m = String(raw).match(/(\d{4}-\d{2}-\d{2})(?:T[^-\s]+)?\s*-\s*(\d{4}-\d{2}-\d{2})/);
+  if(!m) return null;
+  const ini = new Date(m[1]), fin = new Date(m[2]);
+  if(isNaN(ini.getTime()) || isNaN(fin.getTime())) return null;
+  return Math.round((fin - ini) / 86400000) || null;
+}
+
+function getIniPlan(r){
+  const raw = r['Proyectado'] || r['Planificado'] || r['Plan PAI'] || '';
+  if(!raw) return null;
+  const m = String(raw).match(/(\d{4}-\d{2}-\d{2})/);
+  return m ? new Date(m[1]) : null;
+}
+
+function enrichPlazos(df){
+  return df.map(r => {
+    const ini = getIniPlan(r);
+    const raw = r['Proyectado'] || r['Planificado'] || r['Plan PAI'] || '';
+    const m = String(raw).match(/(\d{4}-\d{2}-\d{2})(?:T[^-\s]+)?\s*-\s*(\d{4}-\d{2}-\d{2})/);
+    const fin = m ? new Date(m[2]) : null;
+    const mes = fin ? fin.toISOString().slice(0,7) : 'Sin Fecha';
+    return {
+      ...r,
+      _stdDias: parsePlazoStd(r),
+      _durPlan: calcDurPlan(r),
+      _iniPlan: ini,
+      _fin: fin,
+      _mes: mes,
+    };
+  });
+}
+
+function uq(arr){ return [...new Set(arr)].filter(x => x); }
+function fmtD(n){ return n === null ? '—' : n + ' d'; }
+
+// ════════════════════════════════════════════════════════════
+// BUILD APP
+// ════════════════════════════════════════════════════════════
+const SECS = [
+  { id: 'kpi', label: '📊 KPIs Plazos', fn: () => buildKPIPlazos(FILTERED_DF) },
+  { id: 'dur', label: '⏱ Duración Tareas', fn: () => buildDuracion(FILTERED_DF) },
+  { id: 'etapa', label: '🏗 Por Etapa', fn: () => buildEtapa(FILTERED_DF) },
+  { id: 'det', label: '📋 Detalle', fn: () => buildDetalle(FILTERED_DF) },
+];
+
+function buildApp(data){
+  const tabsEl = document.getElementById('tabs');
+  const secsEl = document.getElementById('sections');
+  
+  tabsEl.innerHTML = '';
+  secsEl.innerHTML = '';
+  
+  SECS.forEach((s, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'tab' + (i === 0 ? ' active' : '');
+    btn.textContent = s.label;
+    btn.onclick = () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      sec.classList.add('active');
+    };
+    tabsEl.appendChild(btn);
+    
+    const sec = document.createElement('div');
+    sec.className = 'section' + (i === 0 ? ' active' : '');
+    sec.id = 'sec-' + s.id;
+    secsEl.appendChild(sec);
+    
+    if(i === 0){
+      sec.innerHTML = s.fn();
+    }
+    
+    btn.onclick = ((section) => () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      section.classList.add('active');
+      if(!section.dataset.rendered){
+        section.innerHTML = s.fn();
+        section.dataset.rendered = '1';
+      }
+    })(sec);
+  });
+  
+  updateKPIs(FILTERED_DF);
+}
+
+function applyFilter(){
+  const searchVal = document.getElementById('searchProj').value.toLowerCase();
+  FILTERED_DF = DF.filter(r => 
+    (r.Proyecto || '').toLowerCase().includes(searchVal)
+  );
+  
+  // Rebuild all visible sections
+  SECS.forEach(s => {
+    const sec = document.getElementById('sec-' + s.id);
+    if(sec && sec.classList.contains('active')){
+      sec.innerHTML = s.fn();
+    }
+  });
+  
+  updateKPIs(FILTERED_DF);
+}
+
+// ════════════════════════════════════════════════════════════
+// BUILD SECTIONS
+// ════════════════════════════════════════════════════════════
+function updateKPIs(df){
+  const ep = enrichPlazos(df);
+  const withStd = ep.filter(r => r._stdDias !== null);
+  const withPlan = ep.filter(r => r._durPlan !== null);
+  
+  const avgStd = withStd.length ? Math.round(withStd.reduce((s, r) => s + r._stdDias, 0) / withStd.length) : 0;
+  const avgPlan = withPlan.length ? Math.round(withPlan.reduce((s, r) => s + r._durPlan, 0) / withPlan.length) : 0;
+  const etapas = uq(ep.map(r => r.Etapa)).length;
+  
+  document.getElementById('kpi-strip').innerHTML = `
+    <div class="kpi kblue"><div class="kv">${df.length}</div><div class="kl">Total Ítems</div></div>
+    <div class="kpi kblue"><div class="kv">${withStd.length}</div><div class="kl">Con Estándar</div></div>
+    <div class="kpi kgreen"><div class="kv">${avgStd} d</div><div class="kl">Prom. Est.</div></div>
+    <div class="kpi kgreen"><div class="kv">${avgPlan} d</div><div class="kl">Prom. Plan.</div></div>
+    <div class="kpi kblue"><div class="kv">${etapas}</div><div class="kl">Etapas</div></div>
+  `;
+}
+
+function buildKPIPlazos(df){
+  const ep = enrichPlazos(df);
+  const withStd = ep.filter(r => r._stdDias).sort((a, b) => b._stdDias - a._stdDias);
+  
+  let html = `<div class="stitle">🏆 Top 10 Tareas por Plazo Estándar</div>
+    <table><thead><tr><th>Proyecto</th><th>Etapa</th><th>Ítem</th><th>Estándar</th></tr></thead><tbody>`;
+  
+  withStd.slice(0, 10).forEach(r => {
+    html += `<tr><td>${r.Proyecto || '—'}</td><td>${r.Etapa || '—'}</td><td>${r.Ítem || '—'}</td><td>${fmtD(r._stdDias)}</td></tr>`;
+  });
+  
+  html += `</tbody></table>`;
+  return html;
+}
+
+function buildDuracion(df){
+  const ep = enrichPlazos(df);
+  let html = `<div class="stitle">📊 Duración por Tipo de Actividad</div>
+    <table><thead><tr><th>Etapa</th><th>N° Ítems</th><th>Prom. Estándar</th><th>Prom. Planificado</th></tr></thead><tbody>`;
+  
+  const etM = {};
+  ep.forEach(r => {
+    const e = r.Etapa || 'Sin Etapa';
+    if(!etM[e]) etM[e] = {cnt: 0, stdSum: 0, stdCnt: 0, planSum: 0, planCnt: 0};
+    etM[e].cnt++;
+    if(r._stdDias) { etM[e].stdSum += r._stdDias; etM[e].stdCnt++; }
+    if(r._durPlan) { etM[e].planSum += r._durPlan; etM[e].planCnt++; }
+  });
+  
+  Object.entries(etM).forEach(([e, v]) => {
+    const avgStd = v.stdCnt ? Math.round(v.stdSum / v.stdCnt) : '—';
+    const avgPlan = v.planCnt ? Math.round(v.planSum / v.planCnt) : '—';
+    html += `<tr><td>${e}</td><td>${v.cnt}</td><td>${typeof avgStd === 'number' ? avgStd + ' d' : avgStd}</td><td>${typeof avgPlan === 'number' ? avgPlan + ' d' : avgPlan}</td></tr>`;
+  });
+  
+  html += `</tbody></table>`;
+  return html;
+}
+
+function buildEtapa(df){
+  const ep = enrichPlazos(df);
+  const etapas = uq(ep.map(r => r.Etapa));
+  
+  let html = `<div class="stitle">🏗 Etapas Detectadas</div>
+    <table><thead><tr><th>Etapa</th><th>N° Ítems</th><th>Rango Fechas</th></tr></thead><tbody>`;
+  
+  etapas.forEach(e => {
+    const items = ep.filter(r => r.Etapa === e);
+    const fins = items.filter(r => r._fin).map(r => r._fin);
+    const range = fins.length > 0 ? 
+      fins[0].toLocaleDateString('es-CL') + ' a ' + fins[fins.length - 1].toLocaleDateString('es-CL') :
+      '—';
+    html += `<tr><td><strong>${e || 'Sin Etapa'}</strong></td><td>${items.length}</td><td>${range}</td></tr>`;
+  });
+  
+  html += `</tbody></table>`;
+  return html;
+}
+
+function buildDetalle(df){
+  const ep = enrichPlazos(df);
+  
+  let html = `<div class="stitle">📋 Listado Completo</div>
+    <table><thead><tr><th>Proyecto</th><th>Etapa</th><th>Ítem</th><th>Estándar</th><th>Planificado</th><th>Fin</th></tr></thead><tbody>`;
+  
+  ep.slice(0, 50).forEach(r => {
+    html += `<tr>
+      <td>${r.Proyecto || '—'}</td>
+      <td>${r.Etapa || '—'}</td>
+      <td>${r.Ítem || '—'}</td>
+      <td>${fmtD(r._stdDias)}</td>
+      <td>${fmtD(r._durPlan)}</td>
+      <td>${r._fin ? r._fin.toLocaleDateString('es-CL') : '—'}</td>
+    </tr>`;
+  });
+  
+  html += `</tbody></table>
+    <p style="color: var(--text3); font-size: 0.75rem; margin-top: 1rem;">Mostrando primeros 50 de ${ep.length}</p>`;
+  
+  return html;
+}
+
+// ════════════════════════════════════════════════════════════
+// THEME TOGGLE
+// ════════════════════════════════════════════════════════════
+function toggleTheme(){
+  document.documentElement.classList.toggle('light');
+}
+
+// Init
+window.onload = () => {
+  const key = localStorage.getItem('monday_api_key');
+  if(key) {
+    document.getElementById('apikey').value = key;
+    // Auto-login could go here
+  }
+};
+</script>
+
+</body>
+</html>
